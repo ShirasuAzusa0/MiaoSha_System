@@ -1,0 +1,26 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: MiaoShaSystem
+  datasource:
+    url: jdbc:mysql://localhost:3306/mss
+    username: root
+    password: Azusa1226!
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  security:
+    jwt:
+      key: ab1247
+      expire: 7
+
