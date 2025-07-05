@@ -12,4 +12,4 @@ src/main/java/.../
 ├─ key                  RSA非对称加密算法的密钥
 ├─ util                 各种通用工具类方法
 ├─ task                 定时层，定时任务类
-└─
+└─ xxxApplication       启动类
