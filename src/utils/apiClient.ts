@@ -3,8 +3,8 @@ import { ElMessage } from "element-plus";
 
 // axios实例
 const apiClient = axios.create({
-  // baseURL: 'http://127.0.0.1:8080',// TODO: 切换到环境变量
-  baseURL: 'http://127.0.0.1:4523/m1/6504726-6205188-default',
+  baseURL: 'http://127.0.0.1:8080',// TODO: 切换到环境变量
+  // baseURL: 'http://127.0.0.1:4523/m1/6504726-6205188-default',
   timeout: 5000,
 });
 
