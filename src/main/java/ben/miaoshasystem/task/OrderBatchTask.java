@@ -2,6 +2,7 @@ package ben.miaoshasystem.task;
 
 import ben.miaoshasystem.entity.Goods;
 import ben.miaoshasystem.entity.MyOrders;
+import ben.miaoshasystem.entity.OrderGoods;
 import ben.miaoshasystem.entity.Users;
 import ben.miaoshasystem.repository.GoodRepository;
 import ben.miaoshasystem.repository.OrderRepository;
@@ -48,36 +49,53 @@ public class OrderBatchTask {
             // 不建议这样做，直接反序列化成 MyOrders 实体很多复杂的关联字段容易出问题
             // MyOrders myOrders = objectMapper.convertValue(data, MyOrders.class);
 
+            List<OrderGoods> orderGoodsList = new ArrayList<>();
+
             Map<String, Object> orderMap = (Map<String, Object>) data;
 
-            int goodId = (Integer) orderMap.get("goodId");
             int customerId = (Integer) orderMap.get("customerId");
-            int quantity = (Integer) orderMap.get("quantity");
-            int cost = (Integer) orderMap.get("cost");
             String address = (String) orderMap.get("address");
             LocalDateTime orderTime = LocalDateTime.parse((String) orderMap.get("orderTime"));
+            double totalCost = (Double) orderMap.get("totalCost");
 
-            Goods good = goodRepository.findById(goodId);
             Users user = userRepository.findById(customerId);
 
-            // 库存扣除
-            if (good != null) {
-                int newQuantity = good.getQuantity() - quantity;
-                if (newQuantity < 0) {
-                    throw new RuntimeException("商品 [" + good.getGoodName() + "] 库存不足！");
-                }
-                good.setQuantity(newQuantity);
-                goodRepository.save(good);
-            }
+            List<Map<String, Object>> items = (List<Map<String, Object>>) orderMap.get("data");
 
             MyOrders myOrders = new MyOrders();
-            myOrders.setGoodId(good);
             myOrders.setCustomerId(user);
-            myOrders.setQuantity(quantity);
-            myOrders.setCost(cost);
             myOrders.setAddress(address);
             myOrders.setOrderTime(orderTime);
-            batch.add(myOrders);
+            myOrders.setTotalCost(totalCost);
+
+            for (Map<String, Object> item : items) {
+                int goodId = (Integer) item.get("goodId");
+                int quantity = (Integer) item.get("quantity");
+                double cost = (Double) item.get("cost");
+
+                Goods good = goodRepository.findById(goodId);
+
+                // 库存扣除
+                if (good != null) {
+                    int newQuantity = good.getQuantity() - quantity;
+                    if (newQuantity < 0) {
+                        throw new RuntimeException("商品 [" + good.getGoodName() + "] 库存不足！");
+                    }
+                    good.setQuantity(newQuantity);
+                    goodRepository.save(good);
+                }
+
+                OrderGoods orderGoods = new OrderGoods();
+                orderGoods.setGoodId(good);
+                orderGoods.setQuantity(quantity);
+                orderGoods.setCost(cost);
+                orderGoods.setOrderId(myOrders); // 先放到内存关系里
+
+                orderGoodsList.add(orderGoods);
+
+                myOrders.setOrderGoodsList(orderGoodsList);
+                batch.add(myOrders);
+            }
         }
 
         if (!batch.isEmpty()) {

@@ -66,11 +66,11 @@ public class Goods {
     )
     private List<Promotions> promotions;
 
-    // goods 和 orders 的一对多关系
+    // goods 和 orderGoods 的一对多关系
     @Getter
     @Setter
     @OneToMany(mappedBy = "goodId", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<MyOrders> orders;
+    private List<OrderGoods> orders;
 
     public Goods() {}
 }

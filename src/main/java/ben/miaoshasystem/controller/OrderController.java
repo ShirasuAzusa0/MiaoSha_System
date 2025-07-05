@@ -19,9 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @RestController
 @RequestMapping("/good")
@@ -49,36 +47,57 @@ public class OrderController {
             return ResponseEntity.badRequest().body(Map.of("status", "fail", "msg", "未找到用户"));
         }
 
-        int goodId = dto.getGoodsId();
+        // 收集每个商品的信息
+        List<Map<String, Object>> orderDataList = new ArrayList<>();
+        // 记录总价
+        double totalCost = 0;
 
-        // 从 Redis 获取库存
-        String stockKey = "goods:stock:" + goodId;
-        Integer stock = (Integer) redisTemplate.opsForValue().get(stockKey);
+        for (OrderRequestDto.OrderItem item : dto.getGoods()) {
+            int goodId = item.getGoodsId();
+            int quantity = item.getQuantity();
 
-        if (stock == null) {
-            // 若 Redis 没有缓存，则从数据库中读取一次，并写入 Redis
+            if (quantity <= 0) {
+                return ResponseEntity.badRequest().body(Map.of("status", "fail", "msg", "购买数量非法"));
+            }
+
+            // 从 Redis 获取库存
+            String stockKey = "goods:stock:" + goodId;
+            Integer stock = (Integer) redisTemplate.opsForValue().get(stockKey);
+
+            if (stock == null) {
+                // 若 Redis 没有缓存，则从数据库中读取一次，并写入 Redis
+                Goods good = goodRepository.findById(goodId);
+                if (good == null) {
+                    return ResponseEntity.badRequest().body(Map.of("status", "fail", "msg", "未找到商品"));
+                }
+                stock = good.getQuantity();
+                redisTemplate.opsForValue().set(stockKey, stock);
+            }
+
+            // 校验库存是否足够
+            if(quantity > stock) {
+                return ResponseEntity.badRequest().body(Map.of("status", "fail", "msg", "库存不足或购买数量非法"));
+            }
+
+            // 扣减缓存中的库存
+            redisTemplate.opsForValue().decrement(stockKey, quantity);
+
+            // 计算订单金额（需查询价格）
             Goods good = goodRepository.findById(goodId);
             if (good == null) {
                 return ResponseEntity.badRequest().body(Map.of("status", "fail", "msg", "未找到商品"));
             }
-            stock = good.getQuantity();
-            redisTemplate.opsForValue().set(stockKey, stock);
-        }
+            double cost = good.getPrice() * quantity * 1.0;
+            totalCost += cost;
 
-        // 校验库存是否足够
-        if(dto.getQuantity() <= 0 || dto.getQuantity() > stock) {
-            return ResponseEntity.badRequest().body(Map.of("status", "fail", "msg", "库存不足或购买数量非法"));
-        }
+            // 处理每件商品
+            Map<String, Object> itemData = new HashMap<>();
+            itemData.put("goodId", goodId);
+            itemData.put("quantity", quantity);
+            itemData.put("cost", cost);
 
-        // 扣减缓存中的库存
-        redisTemplate.opsForValue().decrement(stockKey, dto.getQuantity());
-
-        // 计算订单金额（需查询价格）
-        Goods good = goodRepository.findById(goodId);
-        if (good == null) {
-            return ResponseEntity.badRequest().body(Map.of("status", "fail", "msg", "未找到商品"));
+            orderDataList.add(itemData);
         }
-        int cost = good.getPrice() * dto.getQuantity();
 
         // 生成唯一订单号
         String orderIdKey = "orders:id:generator";
@@ -87,20 +106,21 @@ public class OrderController {
         // 拼装订单信息
         Map<String, Object> OrderInfo = new HashMap<>();
         // OrderInfo.put("orderId", orderId);
-        OrderInfo.put("goodId", goodId);
         OrderInfo.put("customerId", userId);
-        OrderInfo.put("quantity", dto.getQuantity());
-        OrderInfo.put("cost", cost);
+        OrderInfo.put("data", orderDataList);
         OrderInfo.put("address", dto.getAddress());
         OrderInfo.put("orderTime", LocalDateTime.now().toString());
+        OrderInfo.put("totalCost", totalCost);
 
-        // 订单写入队列
+        // 订单写入 Redis 队列
         redisTemplate.opsForList().rightPush("orders:queue", OrderInfo);
 
         return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "msg", "下单成功，已进入队列",
-                "data", OrderInfo
+                "orderId", orderId,
+                "data", OrderInfo,
+                "totalCost", totalCost
             )
         );
     }

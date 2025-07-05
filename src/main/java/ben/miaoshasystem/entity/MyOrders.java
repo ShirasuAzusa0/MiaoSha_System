@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "orders")
@@ -19,24 +21,13 @@ public class MyOrders {
     @Getter
     @Setter
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "goodId", nullable = false)
-    private Goods goodId;
-
-    @Getter
-    @Setter
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customerId", nullable = false)
     private Users customerId;
 
     @Getter
     @Setter
     @Column(nullable = false)
-    private int quantity;
-
-    @Getter
-    @Setter
-    @Column(nullable = false)
-    private int cost;
+    private double totalCost;
 
     @Getter
     @Setter
@@ -47,6 +38,12 @@ public class MyOrders {
     @Setter
     @Column(nullable = false)
     private LocalDateTime orderTime;
+
+    // 订单与商品项：一对多
+    @Getter
+    @Setter
+    @OneToMany(mappedBy = "orderId", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderGoods> orderGoodsList= new ArrayList<>();
 
     public MyOrders() {}
 }
