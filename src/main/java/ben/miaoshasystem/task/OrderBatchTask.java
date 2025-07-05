@@ -8,6 +8,7 @@ import ben.miaoshasystem.repository.OrderRepository;
 import ben.miaoshasystem.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -35,6 +36,7 @@ public class OrderBatchTask {
 
     // 每隔5秒执行一次，批量从 Redis 取订单写回 MySQL
     @Scheduled(fixedRate = 5000)
+    @Transactional
     public void batchInsertOrders() {
         List<MyOrders> batch = new ArrayList<>();
         while (true) {
@@ -57,6 +59,16 @@ public class OrderBatchTask {
 
             Goods good = goodRepository.findById(goodId);
             Users user = userRepository.findById(customerId);
+
+            // 库存扣除
+            if (good != null) {
+                int newQuantity = good.getQuantity() - quantity;
+                if (newQuantity < 0) {
+                    throw new RuntimeException("商品 [" + good.getGoodName() + "] 库存不足！");
+                }
+                good.setQuantity(newQuantity);
+                goodRepository.save(good);
+            }
 
             MyOrders myOrders = new MyOrders();
             myOrders.setGoodId(good);
