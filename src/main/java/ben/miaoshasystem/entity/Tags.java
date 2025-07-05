@@ -1,6 +1,7 @@
 package ben.miaoshasystem.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 @Entity
 @Table(name = "tags")
@@ -10,6 +11,7 @@ public class Tags {
     @Column(name = "tagId")
     private int tagId;
 
+    @Getter
     @Column(name = "tagName")
     private String tagName;
 
