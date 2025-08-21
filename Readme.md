@@ -1,3 +1,4 @@
+```
 项目架构如下：
 src/main/java/.../
 ├─ controller           控制层，只处理HTTP请求和响应
@@ -13,3 +14,4 @@ src/main/java/.../
 ├─ util                 各种通用工具类方法
 ├─ task                 定时层，定时任务类
 └─ xxxApplication       启动类
+```
